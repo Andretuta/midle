@@ -6,7 +6,9 @@ const path = require('path');
 const { LorvathAccount } = require('./lorvath-account');
 const { evaluate } = require('./rules');
 
-const DATA_DIR = path.join(__dirname, 'data');
+// Empacotado, __dirname vive dentro do app.asar (somente leitura): os dados vao
+// para a pasta do usuario (%APPDATA%/Lovarth Fleet/data no Windows).
+const DATA_DIR = app.isPackaged ? path.join(app.getPath('userData'), 'data') : path.join(__dirname, 'data');
 const ACCOUNTS_FILE = path.join(DATA_DIR, 'accounts.json');
 const ACTION_LOG = path.join(DATA_DIR, 'actions.log');
 const WS_SAMPLE = path.join(DATA_DIR, 'ws-sample.log');

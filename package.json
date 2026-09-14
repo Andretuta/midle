@@ -11,6 +11,34 @@
     "@modelcontextprotocol/sdk": "^1.30.0"
   },
   "devDependencies": {
-    "electron": "^33.0.0"
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.andrevinicius.lovarthfleet",
+    "productName": "Lovarth Fleet",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!dist${/*}",
+      "!test${/*}",
+      "!data${/*}",
+      "!*.tar.gz"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "artifactName": "LovarthFleet-${version}-portable.${ext}",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "LovarthFleet-${version}-portable.${ext}"
+    },
+    "asarUnpack": [
+      "game-probe.js"
+    ]
   }
 }

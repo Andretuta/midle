@@ -4,7 +4,14 @@ Painel multi-conta para o [Lorvath](https://lorvath.com) (MU Online idle): um gr
 cada uma com **sessão de navegador própria** (login separado por Kick / Twitch / Discord / QR) e
 **cliente MCP próprio** (token OAuth por conta), com regra automática de religar o farm.
 
-## Rodar no Windows
+## Baixar pronto (Windows)
+
+[Releases](https://github.com/Andretuta/lovarth-multi-contas-idle/releases) → `LovarthFleet-0.1.0-portable.exe`.
+Executável portátil: baixa, dá dois cliques, não instala nada. O Windows vai mostrar aviso de
+"editor desconhecido" (o .exe não é assinado) — *Mais informações* → *Executar assim mesmo*.
+Os dados ficam em `%APPDATA%\Lovarth Fleet\data` (tokens de cada conta, `actions.log`).
+
+## Rodar do código (Windows / Linux)
 
 Precisa de [Node 20+](https://nodejs.org). Na pasta do projeto:
 
