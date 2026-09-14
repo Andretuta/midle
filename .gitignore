@@ -3,3 +3,4 @@ data/*/
 data/accounts.json
 data/actions.log
 data/ws-sample.log
+dist/
