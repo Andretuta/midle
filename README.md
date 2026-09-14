@@ -4,6 +4,9 @@ Painel multi-conta para o [Lorvath](https://lorvath.com) (MU Online idle): um gr
 cada uma com **sessão de navegador própria** (login separado por Kick / Twitch / Discord / QR) e
 **cliente MCP próprio** (token OAuth por conta), com regra automática de religar o farm.
 
+**Por que isso existe, o que já foi pesquisado e quais limites do jogo moldaram o
+app:** [`docs/contexto-e-pesquisa.md`](docs/contexto-e-pesquisa.md) — leia antes de mexer no código.
+
 ## Baixar pronto (Windows)
 
 [Releases](https://github.com/Andretuta/lovarth-multi-contas-idle/releases) → `LovarthFleet-0.1.0-portable.exe`.
@@ -76,3 +79,8 @@ Checa o isolamento de credenciais entre contas e a lógica da regra automática.
 | `data/` | `accounts.json`, tokens por conta (chmod 600), `actions.log` |
 
 Debug do protocolo do jogo: `DEBUG_WS=1 npm start` grava amostras cruas em `data/ws-sample.log`.
+
+## O que falta
+
+Lista viva em [`docs/contexto-e-pesquisa.md`](docs/contexto-e-pesquisa.md#o-que-falta): rodar o exe
+em Windows de verdade, fixar o parser do websocket do jogo, ícone e assinatura do executável.
