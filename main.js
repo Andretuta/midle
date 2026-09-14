@@ -242,9 +242,15 @@ app.whenReady().then(() => {
     webPreferences: {
       preload: path.join(__dirname, 'renderer', 'preload.js'),
       webviewTag: true,
+      sandbox: false,   // o preload precisa de path/url; o renderer so carrega arquivo local
     },
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  // erros do renderer no mesmo terminal: sem isso, falha de UI morre calada
+  win.webContents.on('console-message', (...args) => {
+    const d = args.find((x) => x && typeof x === 'object' && 'message' in x);
+    console.log('[ui]', d ? d.message : args[2]);
+  });
 
   // sessoes isoladas por conta ja existem via partition; so pre-aquece.
   for (const acc of accounts.values()) session.fromPartition(`persist:acc-${acc.id}`);

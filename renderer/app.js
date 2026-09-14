@@ -66,7 +66,7 @@ function makeCard(a) {
     wv.setAttribute('partition', `persist:acc-${a.id}`);
     wv.setAttribute('src', 'https://lorvath.com');
     wv.setAttribute('preload', window.fleet.probeUrl);
-    wv.setAttribute('webpreferences', 'contextIsolation=no');   // o probe precisa ver o window do jogo
+    wv.setAttribute('webpreferences', 'contextIsolation=no,sandbox=no');   // o probe precisa ver o window do jogo
     wv.setAttribute('allowpopups', '');
     wv.addEventListener('ipc-message', (ev) => {
       if (ev.channel === 'probe:stats') window.fleet.sendStats(a.id, ev.args[0]);
@@ -162,7 +162,12 @@ function render() {
     `${state.accounts.length} contas · ${ready} no MCP · ${[...live].length} janelas abertas`;
 }
 
-async function refresh() { state = await window.fleet.get(); render(); }
+let booted = false;
+async function refresh() {
+  state = await window.fleet.get();
+  render();
+  if (!booted) { booted = true; console.log(`ui pronta: ${state.accounts.length} contas`); }
+}
 
 document.getElementById('add').onclick = async () => {
   const label = prompt('Nome da conta (ex: Conta 1 / email):');
