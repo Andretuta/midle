@@ -1,0 +1,16 @@
+{
+  "name": "lorvath-fleet",
+  "version": "0.1.0",
+  "description": "Painel multi-conta para Lorvath (MU Idle) - grid de janelas do jogo + MCP por conta",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node test/selfcheck.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0"
+  }
+}
