@@ -15,6 +15,7 @@ const WS_SAMPLE = path.join(DATA_DIR, 'ws-sample.log');
 const CALLBACK_PORT = 51380;
 const REDIRECT_URI = `http://127.0.0.1:${CALLBACK_PORT}/callback`;
 const POLL_MS = 60_000;
+const RULES_MS = 15_000;   // curto o bastante para o card mostrar o motivo quase ao vivo
 
 const accounts = new Map();      // id -> LorvathAccount
 const authWindows = new Map();   // id -> BrowserWindow
@@ -102,12 +103,14 @@ function startCallbackServer() {
 }
 
 // ---------- poll + regras ----------
+const snapshot = () => ({
+  settings,
+  accounts: [...accounts.values()].map((a) => ({ ...a.toJSON(), rules: a.rules, rule: a.rule })),
+});
+
 function pushState() {
   if (!win || win.isDestroyed()) return;
-  win.webContents.send('fleet:state', {
-    settings,
-    accounts: [...accounts.values()].map((a) => ({ ...a.toJSON(), rules: a.rules })),
-  });
+  win.webContents.send('fleet:state', snapshot());
 }
 
 async function pollOnce() {
@@ -128,12 +131,12 @@ async function pollOnce() {
 }
 
 function evaluateRules() {
-  if (settings.killSwitch) return;
   const now = Date.now();
   for (const acc of accounts.values()) {
-    const { fire, badSince, why } = evaluate(acc, now);
-    acc.badSince = badSince;
-    if (fire) queueMacro(acc, `regra automatica: ${why}`);
+    const res = evaluate(acc, now, settings);
+    acc.badSince = res.badSince;
+    acc.rule = { code: res.code, why: res.why, until: res.until, at: now };   // o card mostra
+    if (res.fire) queueMacro(acc, `regra automatica: ${res.why}`);
   }
 }
 
@@ -160,10 +163,7 @@ function queueMacro(acc, motivo) {
 
 // ---------- IPC ----------
 function registerIpc() {
-  ipcMain.handle('fleet:get', () => ({
-    settings,
-    accounts: [...accounts.values()].map((a) => ({ ...a.toJSON(), rules: a.rules })),
-  }));
+  ipcMain.handle('fleet:get', () => snapshot());
 
   ipcMain.handle('fleet:addAccount', (_e, label) => {
     const id = `acc${Date.now().toString(36)}`;
@@ -186,6 +186,7 @@ function registerIpc() {
     if (patch.slot != null) acc.slot = Number(patch.slot);
     if (patch.rules) acc.rules = { ...acc.rules, ...patch.rules };
     saveConfig();
+    if (patch.rules) evaluateRules();
     pushState();
     return true;
   });
@@ -193,6 +194,7 @@ function registerIpc() {
   ipcMain.handle('fleet:setSettings', (_e, patch) => {
     settings = { ...settings, ...patch };
     saveConfig();
+    evaluateRules();
     pushState();
     return settings;
   });
@@ -260,7 +262,8 @@ app.whenReady().then(() => {
   for (const acc of accounts.values()) acc.connect().catch(() => {});
   setTimeout(pollOnce, 3000);
   setInterval(pollOnce, POLL_MS);
-  setInterval(evaluateRules, 60_000);
+  evaluateRules();   // o card ja nasce dizendo o estado da regra
+  setInterval(evaluateRules, RULES_MS);
   setInterval(pushState, 5000);
 });
 

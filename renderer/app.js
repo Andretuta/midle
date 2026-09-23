@@ -10,6 +10,30 @@ const saveLive = () => localStorage.setItem('live', JSON.stringify([...live]));
 const num = (n) => (typeof n === 'number' ? n.toLocaleString('pt-BR') : '—');
 const statusLabel = (a) => ({ ready: 'ok', needs_auth: 'precisa autorizar', offline: 'offline',
   error: 'erro', blocked: 'bloqueado no jogo' }[a.status] || a.status);
+const mins = (ms) => `${Math.max(1, Math.ceil(ms / 60_000))} min`;
+
+// Traduz a ultima decisao da regra (rules.js) em uma frase para o card.
+// A janela aberta e o modo leve so o renderer sabe, por isso o texto nasce aqui.
+function ruleLine(acc, windowOpen, lightMode) {
+  const r = acc.rule;
+  if (!r) return { tone: 'dim', text: 'regra: aguardando a primeira checagem' };
+  const left = r.until ? mins(r.until - Date.now()) : '';
+  const blind = r.code === 'no_telemetry' || r.code === 'stale';
+  if (blind && lightMode) return { tone: 'warn', text: 'regra em pausa: o modo leve fecha a janela do jogo e, sem os dados dela, a regra não age' };
+  if (blind && !windowOpen) return { tone: 'warn', text: 'regra em pausa: janela do jogo fechada. Abra o jogo para a regra enxergar o personagem' };
+  switch (r.code) {
+    case 'kill': return { tone: 'warn', text: 'regra em pausa: "parar regras automáticas" está ligado' };
+    case 'off': return { tone: 'dim', text: 'regra desligada' };
+    case 'not_ready': return { tone: 'warn', text: `regra em pausa: MCP não está pronto (${statusLabel(acc)})` };
+    case 'no_telemetry': return { tone: 'dim', text: 'regra: aguardando os primeiros dados da janela do jogo' };
+    case 'stale': return { tone: 'warn', text: `regra em pausa: a janela não manda dados há ${mins(acc.statsAge ?? 0)} (jogo desconectado?)` };
+    case 'ok': return { tone: 'ok', text: 'regra vigiando: farm ok' };
+    case 'grace': return { tone: 'warn', text: `${r.why}: religa em ${left} se continuar assim` };
+    case 'cooldown': return { tone: 'warn', text: `${r.why}: em cooldown, nova tentativa em ${left}` };
+    case 'fire': return { tone: 'ok', text: `regra disparou: religando farm (${r.why})` };
+    default: return { tone: 'dim', text: `regra: ${r.code}` };
+  }
+}
 
 function makeCard(a) {
   const el = document.createElement('div');
@@ -46,6 +70,7 @@ function makeCard(a) {
       <span>XP/min mínimo <input data-rule="minXpPerMin"></span>
       <span>espera <input data-rule="graceMin"> min</span>
       <span>cooldown <input data-rule="cooldownMin"> min</span>
+      <span class="rulestate"></span>
     </div>
     <div class="err" hidden></div>`;
 
@@ -106,6 +131,9 @@ function makeCard(a) {
       if (input.type === 'checkbox') input.checked = !!v; else input.value = v ?? '';
     }
     const open = live.has(acc.id) && !state.settings.lightMode;
+    const rs = ruleLine(acc, open, !!state.settings.lightMode);
+    q('.rulestate').className = `rulestate ${rs.tone}`;
+    q('.rulestate').textContent = rs.text;
     mountView(open);
     q('.chead [data-act="toggleView"]').textContent = open ? 'fechar jogo' : 'abrir jogo';
   }

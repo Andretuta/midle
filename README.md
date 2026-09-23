@@ -45,6 +45,10 @@ npm start
   e solta o controle deixando o epoch expirar.
   - cooldown por conta, uma macro por vez no app inteiro, tudo registrado em `data/actions.log`.
   - o checkbox **parar regras automáticas** no topo é o botão de pânico.
+  - cada card diz o estado da regra: vigiando, esperando (quanto falta), em cooldown ou em pausa
+    e por quê (janela fechada, modo leve, MCP sem autorizar, dados parados).
+  - a janela do jogo reenvia os dados a cada 15s mesmo sem mudança, enquanto o websocket do jogo
+    estiver aberto. Assim um personagem parado em modo manual não vira "telemetria velha".
 
 ## O que ele nunca faz
 
@@ -57,6 +61,10 @@ npm start
 Cada janela de jogo aberta é um Chromium renderizando o jogo: ~300–500 MB. Com 6–12 contas, use o
 **modo leve** (fecha todas as janelas e mantém só os dados) — o Lorvath é idle, o personagem
 continua farmando com a janela fechada.
+
+**O modo leve pausa as regras automáticas.** Os dados que a regra usa (modo manual, XP/min) vêm
+da janela do jogo; sem ela a regra não enxerga o personagem e, por segurança, não age. O card
+avisa isso. Para ter regra em uma conta, deixe o modo leve desligado e só a janela dela aberta.
 
 ## Teste
 

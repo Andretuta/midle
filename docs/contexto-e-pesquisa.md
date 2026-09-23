@@ -65,7 +65,9 @@ Estas não são preferências de estilo — são limites do servidor, e o app fo
 - Servidores lobby são `webmu-1..8`; se o personagem for movido para `webmu-9+`, o MCP não alcança e
   a conta fica marcada como bloqueada esperando ação humana.
 - Sem telemetria fresca da janela (menos de 2 minutos), **nenhuma regra dispara** — decisão
-  conservadora de propósito, para o app nunca agir às cegas.
+  conservadora de propósito, para o app nunca agir às cegas. Por isso a janela reenvia os dados a
+  cada 15s enquanto o websocket do jogo está aberto (senão estado parado parecia velho), e o modo
+  leve, que fecha as janelas, deixa as regras em pausa com aviso no card.
 
 ## O que falta
 

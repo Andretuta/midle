@@ -12,9 +12,21 @@ const KEYS = new Set([
 ]);
 const JEWELS = ['bless', 'soul', 'chaos', 'creation'];
 
+// Heartbeat: o estado do personagem pode ficar igual por muito tempo (parado em modo
+// manual, por exemplo). Sem reenviar, o main ve telemetria "velha" e a regra nunca dispara
+// justamente quando precisa. Reenvia o digest enquanto a fonte estiver viva.
+const HEARTBEAT_MS = 15_000;
+
 let digest = {};
 let dirty = false;
 let sampled = 0;
+let wsFed = false;           // o websocket ja entregou alguma chave conhecida
+let lastSentAt = 0;
+const sockets = new Set();   // websockets do jogo ainda abertos
+
+function put(k, v) {
+  if (digest[k] !== v) { digest[k] = v; dirty = true; }
+}
 
 function harvest(node, depth = 0) {
   if (!node || typeof node !== 'object' || depth > 6) return;
@@ -22,11 +34,12 @@ function harvest(node, depth = 0) {
   for (const [k, v] of Object.entries(node)) {
     if (v !== null && typeof v === 'object') {
       if (k === 'jewels') {
-        for (const j of JEWELS) if (typeof v[j] === 'number') { digest[`jewel_${j}`] = v[j]; dirty = true; }
+        for (const j of JEWELS) if (typeof v[j] === 'number') put(`jewel_${j}`, v[j]);
       }
       harvest(v, depth + 1);
     } else if (KEYS.has(k) && (typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean')) {
-      if (digest[k] !== v) { digest[k] = v; dirty = true; }
+      put(k, v);
+      wsFed = true;
     }
   }
 }
@@ -42,6 +55,8 @@ function ingest(raw) {
 const NativeWS = window.WebSocket;
 function PatchedWS(url, protocols) {
   const ws = protocols === undefined ? new NativeWS(url) : new NativeWS(url, protocols);
+  sockets.add(ws);
+  ws.addEventListener('close', () => sockets.delete(ws));
   ws.addEventListener('message', (ev) => {
     try {
       if (typeof ev.data === 'string') ingest(ev.data);
@@ -56,18 +71,28 @@ for (const k of ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED']) PatchedWS[k] = Nati
 try { window.WebSocket = PatchedWS; } catch {}
 
 // Fallback: se o websocket for binario/ilegivel, le o HUD que o jogo desenha em texto.
+// Rele a cada tick (nao so uma vez): o heartbeat so pode reenviar o que ainda e verdade.
+// Devolve true se o HUD foi lido agora.
 function scrapeDom() {
-  if (Object.keys(digest).length) return;
+  if (wsFed) return false;
   const t = document.body?.innerText || '';
   const xp = t.match(/XP\s*\/\s*min[^0-9]*([\d.,]+)/i);
   const lv = t.match(/N[ií]vel\s*(\d+)/i) || t.match(/\bLv\.?\s*(\d+)/i);
-  if (xp) { digest.xpPerMin = Number(xp[1].replace(/[.,]/g, '')); dirty = true; }
-  if (lv) { digest.level = Number(lv[1]); dirty = true; }
+  if (xp) put('xpPerMin', Number(xp[1].replace(/[.,]/g, '')));
+  if (lv) put('level', Number(lv[1]));
+  return !!(xp || lv);
 }
 
+const socketOpen = () => [...sockets].some((ws) => ws.readyState === NativeWS.OPEN);
+
 setInterval(() => {
-  scrapeDom();
-  if (!dirty) return;
+  const domLive = scrapeDom();
+  const now = Date.now();
+  // fonte viva = websocket do jogo aberto (o espelho segue valendo) ou HUD lido agora
+  const alive = (wsFed && socketOpen()) || domLive;
+  const heartbeat = alive && Object.keys(digest).length && now - lastSentAt >= HEARTBEAT_MS;
+  if (!dirty && !heartbeat) return;
   dirty = false;
+  lastSentAt = now;
   ipcRenderer.sendToHost('probe:stats', digest);
 }, 1000);

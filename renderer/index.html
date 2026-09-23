@@ -30,6 +30,8 @@
   .actions { display:flex; flex-wrap:wrap; gap:5px; padding:7px 10px; }
   .err { color:var(--bad); font-size:11px; padding:0 10px 7px; word-break:break-word; }
   .rules { display:flex; gap:8px; align-items:center; padding:0 10px 8px; color:var(--dim); font-size:11px; flex-wrap:wrap; }
+  .rulestate { flex-basis:100%; }
+  .rulestate.ok { color:var(--ok); } .rulestate.warn { color:var(--warn); }
   .rules input { width:56px; background:#0d1220; color:var(--txt); border:1px solid var(--line); border-radius:4px; padding:2px 4px; }
   .empty { padding:40px; color:var(--dim); text-align:center; grid-column:1/-1; }
 </style>
@@ -37,7 +39,7 @@
   <h1>LORVATH FLEET</h1>
   <button class="gold" id="add">+ Conta</button>
   <button id="refreshAll">Atualizar tudo</button>
-  <label class="toggle"><input type="checkbox" id="lightMode"> modo leve (sem janelas)</label>
+  <label class="toggle" title="Fecha todas as janelas do jogo para poupar memória. Sem a janela não há dados ao vivo, então as regras automáticas ficam em pausa."><input type="checkbox" id="lightMode"> modo leve (sem janelas, pausa as regras)</label>
   <label class="toggle"><input type="checkbox" id="killSwitch"> parar regras automáticas</label>
   <span class="spacer"></span>
   <span id="summary" style="color:var(--dim)"></span>

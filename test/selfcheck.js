@@ -6,6 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { AccountOAuthProvider } = require('../oauth-store');
+const vm = require('vm');
 const { evaluate } = require('../rules');
 
 const MIN = 60_000;
@@ -46,5 +47,60 @@ assert.strictEqual(evaluate(base({ stats: { manualMode: 1 }, badSince: now - 6 *
 assert.strictEqual(evaluate(base({ stats: null, badSince: now - 6 * MIN }), now).fire, false, 'sem telemetria nao age');
 assert.strictEqual(evaluate(base({ status: 'blocked', stats: { manualMode: 1 }, badSince: now - 6 * MIN }), now).fire, false, 'conta bloqueada no jogo nao entra em loop');
 assert.strictEqual(evaluate(base({ rules: { enabled: false, minXpPerMin: 200, graceMin: 5, cooldownMin: 15 }, stats: { manualMode: 1 }, badSince: now - 6 * MIN }), now).fire, false, 'regra desligada disparou');
+
+// --- motivo de nao disparar (o card mostra) ---
+const code = (acc, opts) => evaluate(acc, now, opts).code;
+assert.strictEqual(code(base(), { killSwitch: true }), 'kill');
+assert.strictEqual(evaluate(base({ stats: { manualMode: 1 }, badSince: now - 6 * MIN }), now, { killSwitch: true }).fire, false, 'botao de panico ignorado');
+assert.strictEqual(code(base({ rules: { enabled: false } })), 'off');
+assert.strictEqual(code(base({ status: 'needs_auth' })), 'not_ready');
+assert.strictEqual(code(base({ stats: null, statsAt: 0 })), 'no_telemetry');
+assert.strictEqual(code(base({ statsAt: now - 5 * MIN })), 'stale');
+assert.strictEqual(code(base()), 'ok');
+const g = evaluate(base({ stats: { manualMode: 1 }, badSince: now - 2 * MIN }), now);
+assert.strictEqual(g.code, 'grace');
+assert.strictEqual(g.until, now + 3 * MIN, 'card precisa saber quanto falta da espera');
+const cd = evaluate(base({ stats: { xpPerMin: 10 }, badSince: now - 6 * MIN, lastMacroAt: now - 2 * MIN }), now);
+assert.strictEqual(cd.code, 'cooldown');
+assert.strictEqual(cd.until, now + 13 * MIN);
+assert.strictEqual(evaluate(base({ stats: { manualMode: 1 }, badSince: now - 6 * MIN }), now).code, 'fire');
+
+// --- heartbeat do probe: estado parado nao pode virar telemetria velha ---
+function loadProbe() {
+  const sent = [];
+  let tick = null;
+  let clock = 1_000_000;
+  class FakeWS {
+    constructor() { this.readyState = FakeWS.OPEN; this.l = {}; }
+    addEventListener(t, fn) { (this.l[t] ||= []).push(fn); }
+    emit(t, ev) { for (const fn of this.l[t] || []) fn(ev); }
+  }
+  Object.assign(FakeWS, { CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3 });
+  const window = { WebSocket: FakeWS };
+  const sandbox = {
+    window, document: { body: { innerText: '' } }, Blob: class {}, ArrayBuffer,
+    Date: { now: () => clock },
+    setInterval: (fn) => { tick = fn; },
+    require: () => ({ ipcRenderer: { sendToHost: (ch, d) => { if (ch === 'probe:stats') sent.push({ ...d }); } } }),
+  };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'game-probe.js'), 'utf8'), sandbox);
+  const ws = new window.WebSocket('wss://x');
+  return {
+    sent, ws,
+    msg: (o) => ws.emit('message', { data: JSON.stringify(o) }),
+    run: (seconds) => { for (let i = 0; i < seconds; i++) { clock += 1000; tick(); } },
+  };
+}
+const pr = loadProbe();
+pr.msg({ manualMode: 1, xpPerMin: 0 });
+pr.run(1);
+assert.strictEqual(pr.sent.length, 1, 'mudanca precisa sair no tick seguinte');
+pr.run(60);
+assert.ok(pr.sent.length >= 4, `estado parado precisa de heartbeat (so ${pr.sent.length} envios em 60s)`);
+assert.strictEqual(pr.sent.at(-1).manualMode, 1);
+pr.ws.readyState = 3;
+const before = pr.sent.length;
+pr.run(60);
+assert.strictEqual(pr.sent.length, before, 'socket fechado nao pode fingir telemetria fresca');
 
 console.log('selfcheck ok');
