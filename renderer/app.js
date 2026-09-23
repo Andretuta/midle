@@ -169,12 +169,22 @@ async function refresh() {
   if (!booted) { booted = true; console.log(`ui pronta: ${state.accounts.length} contas`); }
 }
 
-document.getElementById('add').onclick = async () => {
-  const label = prompt('Nome da conta (ex: Conta 1 / email):');
-  if (label === null) return;
-  await window.fleet.addAccount(label);
-  refresh();
+// O Electron nao implementa window.prompt(), entao o nome vem de um <dialog> proprio.
+const addDialog = document.getElementById('addDialog');
+const addLabel = document.getElementById('addLabel');
+document.getElementById('add').onclick = () => {
+  addLabel.value = '';
+  addLabel.placeholder = `Conta ${state.accounts.length + 1}`;
+  addDialog.returnValue = '';
+  addDialog.showModal();
+  addLabel.focus();
 };
+document.getElementById('addCancel').onclick = () => addDialog.close('cancel');
+addDialog.addEventListener('close', async () => {
+  if (addDialog.returnValue !== 'ok') return;   // cancelar ou Esc
+  await window.fleet.addAccount(addLabel.value.trim());
+  refresh();
+});
 document.getElementById('refreshAll').onclick = async () => {
   for (const a of state.accounts) if (a.status === 'ready') await window.fleet.action(a.id, 'refresh');
   refresh();
