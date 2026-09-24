@@ -1,0 +1,828 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>MIDLE</title>
+<link rel="stylesheet" href="../node_modules/@fontsource-variable/manrope/index.css">
+<link rel="stylesheet" href="../node_modules/@fontsource-variable/unbounded/index.css">
+<link rel="stylesheet" href="../node_modules/@fontsource-variable/jetbrains-mono/index.css">
+<style>
+  :root {
+    /* VIDRO SOBRE AS JOIAS. O fundo e a noite do castelo com o brilho das tres
+       joias do MU -- Bencao (ouro), Alma (azul), Caos (violeta) -- e o cromo do
+       painel e vidro fosco por cima dele. As cores continuam tendo PAPEL:
+       ouro = suas maos no jogo (ver), alma = a maquina (gerenciar), caos = o
+       proprio painel (marca, foco). Nenhuma e enfeite.
+
+       A escada de superficies continua, agora em transparencia: cada degrau e
+       quanto de branco o vidro deixa passar. O texto foi medido contra o vidro
+       ja composto sobre a noite (~#16142C), nao contra o hex cru. */
+    --noite:#0B0A1A;                       /* fundo de tudo */
+    --vault:#0B0A1A;    /* fundo solido: atras da janela do jogo, texto sobre acento */
+    --poco:rgba(5,4,14,.42);               /* recesso: campo, pilula */
+    --rail:rgba(22,19,46,.34);             /* cromo de vidro: barra, coluna, rodape */
+    --plate:rgba(255,255,255,.045);        /* cartao */
+    --realce:rgba(255,255,255,.075);       /* hover, selecionado */
+    --realce2:rgba(255,255,255,.12);
+    --etch:rgba(255,255,255,.09);          /* fio */
+    --etch-forte:rgba(255,255,255,.18);
+    --brilho:inset 0 1px 0 rgba(255,255,255,.07);   /* a quina de cima do vidro */
+    --vidro:blur(22px) saturate(165%);
+
+    --ouro-tinta:rgba(244,200,114,.12); --ouro-fio:rgba(244,200,114,.38);
+    --azul-tinta:rgba(127,166,255,.12); --azul-fio:rgba(127,166,255,.38);
+    --risco-tinta:rgba(255,138,138,.12); --risco-fio:rgba(255,138,138,.4);
+
+    --sobre-ouro:#2A1C04; --sobre-risco:#1E0A0C;
+    --gold-claro:#F8D896; --gold-fio:#C99A42; --bad-claro:#FFD0D0;
+    --txt:#EEEAFB; --dim:#ABA6CC; --faint:#8D88B3;   /* faint: 5,4:1 sobre o vidro */
+    --gold:#F4C872;   /* Bencao -- modo ver */
+    --soul:#7FA6FF;   /* Alma -- modo gerenciar */
+    --caos:#A78BFA;   /* Caos -- o painel */
+    --ok:#5EEAA0; --bad:#FF8A8A; --warn:#FCD34D;
+    --bar:40px; --rail-w:236px;
+    --raio:12px;
+
+    /* Tres papeis, tres fontes, todas empacotadas (nada baixa em tempo de uso):
+         Unbounded      -- a marca e os titulos. Larga e redonda; usada pouco.
+         Manrope        -- a interface e a frase que se le.
+         JetBrains Mono -- todo NUMERO: alinha em coluna e nao treme ao mudar. */
+    --marca: "Unbounded Variable", "Segoe UI", system-ui, sans-serif;
+    --ui: "Manrope Variable", "Segoe UI", system-ui, sans-serif;
+    --prosa: var(--ui);
+    --dado: "JetBrains Mono Variable", "Cascadia Mono", Consolas, monospace;
+  }
+  /* `--rail-w` precisa ser tipada para animar: custom property nao registrada e
+     texto, e texto nao interpola -- a coluna saltaria de 236 para 38 direto. */
+  @property --rail-w { syntax:"<length>"; inherits:true; initial-value:236px; }
+
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  html { background:var(--noite); }
+  body {
+    margin:0; background:transparent; color:var(--txt);
+    font:13px/1.45 var(--ui); font-weight:500;
+    display:grid; grid-template-rows:var(--bar) 1fr auto; overflow:hidden;
+  }
+  /* O brilho das joias atras do vidro. Fixo e estatico: o desfoque do cromo
+     so recalcula quando o que esta atras muda, e isto nunca muda. */
+  body::before {
+    content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background:
+      radial-gradient(30vmax 26vmax at 4% 4%, rgba(244,200,114,.30), transparent 70%),
+      radial-gradient(26vmax 30vmax at 10% 85%, rgba(167,139,250,.34), transparent 70%),
+      radial-gradient(40vmax 34vmax at 100% 100%, rgba(127,166,255,.26), transparent 70%),
+      radial-gradient(30vmax 22vmax at 70% 0%, rgba(167,139,250,.22), transparent 72%),
+      var(--noite);
+  }
+  /* Vidro: so no cromo, que tem o brilho parado atras. Celula de jogo NAO leva
+     desfoque -- doze janelas desfocando seria GPU gasta com a frota inteira. */
+  #bar, #rail, #rodape, dialog, #chat, .aviso, #farm {
+    backdrop-filter:var(--vidro); -webkit-backdrop-filter:var(--vidro);
+  }
+  /* Quem pediu menos transparencia recebe o mesmo desenho, solido. */
+  @media (prefers-reduced-transparency:reduce) {
+    :root { --rail:#16142C; --plate:#1A1833; --poco:#0F0D22; --realce:#221F40; --realce2:#2B2850; }
+    #bar, #rail, #rodape, dialog, #chat, .aviso, #farm { backdrop-filter:none; }
+  }
+
+  /* Numero em mono nao treme quando muda, e alinha em coluna sem truque. */
+  .num, .stat b, .lvl, .medidor, #rodape .contagem, #custoJanelas,
+  .cel .dorme .hora, #railhead b, .cel > .top .lv {
+    font-family:var(--dado); font-variant-numeric:tabular-nums;
+  }
+  /* Frase e para ler, nao para medir: some com o DIN onde ha texto corrido. */
+  .hint, .msg .sub, .cel .dorme .sub, .cel .dorme .nota, .cel.vaga .sub,
+  dialog p, .campo > span { font-family:var(--prosa); }
+
+  /* ---------- barra da janela ---------- */
+  #bar {
+    -webkit-app-region:drag; display:flex; align-items:center; gap:12px;
+    padding:0 14px; background:var(--rail); border-bottom:1px solid var(--etch); box-shadow:var(--brilho);
+    /* espaco para os botoes nativos sobrepostos a direita */
+    padding-right:150px;
+  }
+  #bar { flex-wrap:nowrap; overflow:hidden; }
+  body.alvo-solta #bar { position:relative; box-shadow:inset 0 0 0 2px var(--gold); background:var(--realce); }
+  body.alvo-solta #bar::after {
+    content:'Solte aqui para trazer de volta'; position:absolute; left:50%; transform:translateX(-50%);
+    color:var(--gold); font-size:12px; font-weight:700; letter-spacing:.06em; pointer-events:none;
+  }
+  #bar .brand { display:flex; align-items:center; gap:7px; }
+  #bar .brand .marca { width:20px; height:20px; flex-shrink:0; filter:drop-shadow(0 0 6px rgba(244,200,114,.35)); }
+  #bar .brand .nome {
+    font-family:var(--marca); font-size:14px; font-weight:700; letter-spacing:.08em; white-space:nowrap;
+    /* A marca e a unica coisa com as duas joias ao mesmo tempo: e o painel. */
+    background:linear-gradient(100deg, var(--gold) 10%, var(--caos) 90%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  #bar .tally { color:var(--dim); font-size:12px; white-space:nowrap; }
+  #bar > * { flex-shrink:0; }
+
+  /* Acoes secundarias viram icone e so crescem no hover. Sem isto a barra
+     transborda com oito botoes escritos e o ultimo fica cortado na direita. */
+  .acoes { display:flex; align-items:center; gap:3px; background:var(--poco);
+           border:1px solid var(--etch); border-radius:999px; padding:3px; }
+  .acoes .bi {
+    display:flex; align-items:center; gap:0; height:26px; padding:0 6px;
+    border:1px solid transparent; border-radius:999px; background:none;
+    color:var(--dim); cursor:pointer; font:inherit; font-size:11px;
+    overflow:hidden; white-space:nowrap;
+    transition:background .18s, color .18s, padding .18s;
+  }
+  .acoes .bi svg { width:14px; height:14px; flex-shrink:0; }
+  .acoes .bi span {
+    max-width:0; opacity:0; margin-left:0;
+    transition:max-width .22s cubic-bezier(.4,0,.2,1), opacity .15s, margin-left .22s;
+  }
+  .acoes .bi:hover { background:var(--realce); color:var(--txt); padding:0 10px 0 7px; }
+  .acoes .bi:hover span { max-width:140px; opacity:1; margin-left:6px; }
+  .acoes .bi.on { color:var(--gold); background:var(--ouro-tinta); }
+  .acoes .bi:focus-visible span { max-width:140px; opacity:1; margin-left:6px; }
+  #bar .tally b { color:var(--txt); font-weight:600; }
+  /* O custo fica na barra porque a escolha do limite e uma decisao de memoria:
+     esconder o preco em tooltip faz o usuario escolher as cegas. */
+  #bar .custo { color:var(--faint); font-size:11px; }
+  #bar .medidor {
+    display:flex; align-items:center; gap:10px; font-size:11px; color:var(--dim);
+    font-variant-numeric:tabular-nums; background:var(--poco); border:1px solid var(--etch);
+    border-radius:999px; padding:3px 11px;
+  }
+  #bar .medidor b { color:var(--txt); font-weight:600; }
+  #bar .medidor .vivo { width:6px; height:6px; border-radius:50%; background:var(--ok); box-shadow:0 0 6px var(--ok); }
+  #bar .medidor .gpu.eco { color:var(--soul); }
+
+  /* Estreitando a janela, alguma coisa tem que sair da barra -- e a ordem em que
+     sai e uma decisao, nao um acidente. Medido: abaixo de 1264px a barra
+     transbordava e o PRIMEIRO controle cortado era o Panico, a parada de
+     emergencia. Agora ela solta primeiro o que so informa (o medidor), depois o
+     rotulo do seletor. O Panico nunca sai.
+
+     A ordem em que solta: vao, estado da GPU, medidor, rotulo do seletor. A marca
+     nao esta mais na lista: com o nome curto (MIDLE, 45px contra os 111px do nome
+     antigo) a barra precisa de 777px em 900, sobrando 123 -- mesmo com o Panico
+     de volta, se o gerenciamento for religado. */
+  @media (max-width: 1300px) { #bar .medidor .gpu { display:none; } }
+  @media (max-width: 1250px) { #bar { gap:8px; } }
+  @media (max-width: 1180px) { #bar .medidor { display:none; } }
+  @media (max-width: 1040px) { .zona .zl { font-size:0; padding-left:4px; gap:0; } }
+  @media (max-width:  960px) { .acoes { gap:0; padding:2px; } .acoes .bi { padding:0 4px; } }
+
+  /* ---------- zonas da barra ----------
+     Treze controles em fila nao tem hierarquia nenhuma: quem olha nao sabe que
+     "Grade" e visao, "Repouso" e acao em lote e "Panico" e emergencia. Agrupar
+     por funcao, com a mesma casca de pilula das outras zonas, e o que transforma
+     a fila em tres blocos legiveis. */
+  .zona {
+    display:flex; align-items:center; gap:2px; background:var(--poco);
+    border:1px solid var(--etch); border-radius:999px; padding:3px;
+  }
+  .zona .zb {
+    height:26px; padding:0 11px; border:1px solid transparent; border-radius:999px;
+    background:none; color:var(--dim); cursor:pointer; font:inherit; font-size:11px;
+    white-space:nowrap; transition:background .16s, color .16s;
+  }
+  .zona .zb:hover { background:var(--realce); color:var(--txt); }
+  .zona .zb.on { color:var(--gold); background:var(--ouro-tinta); }
+  .zona .zl {
+    display:flex; align-items:center; gap:5px; padding:0 4px 0 8px;
+    font-size:11px; color:var(--faint); white-space:nowrap;
+  }
+  .zona .zl select {
+    background:var(--poco); color:var(--txt); border:1px solid var(--etch);
+    border-radius:999px; padding:3px 6px; font:inherit; font-size:11px; margin:0;
+  }
+  /* Quando o rotulo "Telas" some por falta de largura, o select nao pode sumir
+     junto: `font-size:0` no pai zeraria o texto dele tambem. */
+  @media (max-width: 1040px) { .zona .zl select { font-size:11px; } }
+
+  /* Parada de emergencia. Era um checkbox -- o controle que para a frota inteira
+     era o mais discreto da barra. Agora ela ocupa espaco proprio, separada por um
+     vao maior, e quando armada nao da para nao ver. */
+  #bar .parada {
+    display:flex; align-items:center; gap:6px; margin-left:8px; height:32px;
+    padding:0 13px 0 11px; border-radius:999px; cursor:pointer; font:inherit;
+    font-size:11px; font-weight:600; letter-spacing:.03em; white-space:nowrap;
+    color:var(--dim); background:var(--poco); border:1px solid var(--etch);
+    transition:background .16s, color .16s, border-color .16s, box-shadow .16s;
+  }
+  #bar .parada svg { width:14px; height:14px; }
+  #bar .parada[hidden] { display:none; }
+  #bar .parada:hover { color:var(--bad); border-color:var(--risco-fio); background:var(--risco-tinta); }
+  #bar .parada[aria-pressed="true"] {
+    color:var(--sobre-risco); background:var(--bad); border-color:var(--bad); font-weight:700;
+    box-shadow:0 0 0 3px rgba(255,138,138,.18);
+  }
+  /* Frota parada e estado, nao aviso passageiro. Tingir o fundo da barra nao
+     funcionou -- #180E12 contra #0E1320 e indistinguivel no tamanho real. Um
+     traco de 2px atravessando a tela inteira se le de canto de olho, e por ser
+     sombra interna nao empurra um pixel do layout. O rodape ficou de fora: a
+     etiqueta vermelha dele ja diz a mesma coisa, e duas seria uma a mais. */
+  body.parada #bar { background:var(--risco-tinta); box-shadow:inset 0 -2px 0 var(--bad); }
+
+  /* ---------- cabecalho da coluna de contas ----------
+     A contagem por modo estava no rodape, a dois palmos das linhas que descreve.
+     Aqui ela encosta nelas, e usa os mesmos dois pontos de cor da borda de cada
+     linha -- ler a coluna e ler a frota. */
+  #railhead {
+    display:flex; align-items:center; gap:10px; padding:0 12px; height:30px;
+    border-bottom:1px solid var(--etch); font-size:11px; color:var(--dim);
+    font-variant-numeric:tabular-nums; background:var(--poco);
+  }
+  #railhead .par { display:flex; align-items:center; gap:5px; white-space:nowrap; }
+  /* `display:flex` de autor vence o `display:none` que o atributo hidden aplica
+     pela folha do navegador. Sem esta linha, esconder por `.hidden = true` nao
+     esconde nada -- foi assim que o contador de suspensas apareceu zerado. */
+  #railhead .par[hidden] { display:none; }
+  #railhead b { color:var(--txt); font-weight:600; }
+  #railhead .p { width:7px; height:7px; border-radius:2px; background:var(--faint); }
+  #railhead .p.ver { background:var(--gold); }
+  #railhead .p.ger { background:var(--soul); }
+  #railhead .p.sus { background:var(--bad); }
+  #railhead .sus b { color:var(--bad); }
+
+  /* Coluna vazia nao pode ser so vazio: com uma conta so, 90% dela e nada. */
+  #list .vazio {
+    padding:26px 18px; text-align:center; font-size:11px; color:var(--faint); line-height:1.6;
+  }
+
+  /* Rodape: o que esta acontecendo agora, sem competir com a barra de cima. */
+  #rodape {
+    display:flex; align-items:center; gap:12px; padding:0 14px;
+    height:26px; background:var(--rail); border-top:1px solid var(--etch); box-shadow:var(--brilho);
+    font-size:11px; color:var(--faint);
+  }
+  #rodape .selo {
+    display:flex; align-items:center; gap:5px; color:var(--ok);
+    background:rgba(94,234,160,.08); border:1px solid rgba(94,234,160,.22);
+    border-radius:5px; padding:1px 7px;
+  }
+  #rodape .tally { color:var(--faint); }
+  #rodape .tally b { color:var(--dim); font-weight:600; }
+  /* O mesmo lugar diz as duas metades do mesmo fato: o painel age sozinho, ou
+     nao age. Discreto quando esta tudo normal, impossivel de ignorar quando nao. */
+  #rodape .regras {
+    display:flex; align-items:center; gap:5px; border-radius:5px; padding:1px 8px;
+    border:1px solid var(--etch); color:var(--faint);
+  }
+  #rodape .regras::before {
+    content:""; width:5px; height:5px; border-radius:50%; background:var(--ok);
+  }
+  #rodape .regras.quieto { border-color:transparent; padding-left:0; }
+  #rodape .regras.quieto::before { display:none; }
+  body.parada #rodape .regras {
+    color:var(--sobre-risco); background:var(--bad); border-color:var(--bad);
+    font-weight:700; letter-spacing:.02em;
+  }
+  body.parada #rodape .regras::before { background:var(--sobre-risco); }
+  #rodape .contagem {
+    background:var(--plate); border:1px solid var(--etch); border-radius:5px;
+    padding:1px 7px; color:var(--dim); font-weight:600; font-variant-numeric:tabular-nums;
+  }
+
+  /* Modo Foco: a barrinha da celula some e o jogo ocupa a celula inteira. */
+  body.foco .cel > .top { display:none; }
+  body.foco .cel { grid-template-rows:1fr; }
+
+  #prox .lista { width:100%; min-height:130px; resize:vertical; font:12px/1.5 ui-monospace,Consolas,monospace; }
+  #prox .mapa { display:grid; gap:6px; margin-top:10px; max-height:230px; overflow:auto; }
+  #prox .par {
+    display:grid; grid-template-columns:1fr auto auto; gap:8px; align-items:center;
+    background:var(--poco); border:1px solid var(--etch); border-radius:7px; padding:7px 10px; font-size:12px;
+  }
+  #prox .par .end { color:var(--dim); font-variant-numeric:tabular-nums; }
+  #prox .par .ip { color:var(--ok); font-size:11px; font-variant-numeric:tabular-nums; }
+  #prox .par .ip.ruim { color:var(--bad); }
+  #bar .no-drag, #bar button, #bar label { -webkit-app-region:no-drag; }
+  #bar button.on { color:var(--gold); border-color:var(--ouro-fio); background:var(--ouro-tinta); }
+  #bar select {
+    background:var(--plate); color:var(--txt); border:1px solid var(--etch);
+    border-radius:6px; padding:2px 4px; font:inherit; font-size:12px; margin-left:4px;
+  }
+  .spacer { flex:1; }
+
+  /* ---------- casca ---------- */
+  /* Mesma disciplina do #pane logo abaixo: cada filho na sua linha, explicitamente.
+     Rodape sem linha fixa empurraria o 1fr e o palco cairia para altura 0. */
+  #bar { grid-row:1; } #shell { grid-row:2; } #rodape { grid-row:3; }
+  #shell { display:grid; grid-template-columns:var(--rail-w) 1fr; min-height:0; }
+  #rail { background:var(--rail); border-right:1px solid var(--etch); box-shadow:var(--brilho); display:flex; flex-direction:column; min-height:0; }
+
+  /* ---------- recolher a coluna ----------
+     Anima a propria faixa da grade, nao um translate: o palco precisa GANHAR a
+     largura, nao ficar com ela escondida atras. Como o <webview> tem autosize,
+     ele acompanha a faixa quadro a quadro -- e como ninguem o reparenta, o jogo
+     nao recarrega. Medido. */
+  /* A transicao mora no BODY, nao no #shell: uma custom property anima no
+     elemento onde o valor troca, e quem troca e a classe do body. Declarada no
+     #shell ela nao faria nada -- ele so herda o valor ja interpolado. */
+  body { transition:--rail-w .26s cubic-bezier(.32,.72,0,1); }
+  body.recolhido { --rail-w:38px; }
+
+  /* O conteudo sai antes de a faixa terminar de encolher: texto espremido num
+     resto de coluna e pior do que texto que sai. */
+  #rail .somivel {
+    transition:opacity .14s ease, transform .2s cubic-bezier(.32,.72,0,1);
+  }
+  body.recolhido #rail .somivel {
+    opacity:0; transform:translateX(-10px); pointer-events:none;
+  }
+  body.recolhido #railhead { padding:0; justify-content:center; }
+  body.recolhido #list { overflow:hidden; }
+  body.recolhido #railfoot { padding:6px 4px; }
+
+  /* Recolhida, a linha vira so o seu traco de modo. A coluna continua dizendo
+     quantas contas existem e em que estado -- que e a unica coisa que ela
+     precisa dizer quando nao ha espaco para o nome. */
+  body.recolhido .row { padding:5px 0; grid-template-columns:1fr; justify-items:center; }
+  body.recolhido .row::before { left:50%; transform:translateX(-50%); width:16px; height:3px; top:auto; bottom:auto; border-radius:2px; }
+  body.recolhido #add { font-size:0; padding:7px 0; }
+  body.recolhido #add::after { content:"+"; font-size:15px; font-weight:700; }
+
+  /* Pega a coluna pela borda: o botao mora na propria divisa, entao nao custa
+     largura na barra de cima -- que a 900px ja esta no limite. */
+  #puxador {
+    position:absolute; top:6px; right:-11px; width:22px; height:22px; z-index:3;
+    display:grid; place-items:center; border-radius:50%; cursor:pointer;
+    background:var(--plate); border:1px solid var(--etch); color:var(--dim);
+    padding:0; transition:background .16s, color .16s, border-color .16s;
+  }
+  #puxador:hover { background:var(--realce); color:var(--txt); border-color:var(--etch-forte); }
+  #puxador svg { width:12px; height:12px; transition:transform .26s cubic-bezier(.32,.72,0,1); }
+  body.recolhido #puxador svg { transform:rotate(180deg); }
+  #rail { position:relative; }
+
+  /* Quem pediu menos movimento recebe a mesma mudanca, sem o caminho. */
+  @media (prefers-reduced-motion:reduce) {
+    body, #rail .somivel, #puxador svg { transition:none; }
+  }
+  #list { flex:1; overflow-y:auto; padding:6px 0; }
+  #railfoot { padding:8px; border-top:1px solid var(--etch); }
+
+  /* ---------- linha de conta: a assinatura ----------
+     A borda esquerda carrega o modo. Batendo o olho na coluna voce le a frota. */
+  .row {
+    position:relative; display:grid; grid-template-columns:1fr auto; align-items:center;
+    gap:2px 8px; padding:7px 10px 7px 14px; cursor:pointer; border:0; width:100%;
+    background:none; color:inherit; text-align:left; font:inherit;
+  }
+  .row::before {
+    content:""; position:absolute; left:0; top:4px; bottom:4px; width:3px;
+    border-radius:0 2px 2px 0; background:var(--faint); transition:background .12s;
+  }
+  .row.ver::before { background:var(--gold); }
+  .row.gerenciar::before { background:var(--soul); }
+  .row.suspenso::before { background:var(--bad); }
+  .row:hover { background:var(--realce); }
+  .row.sel { background:var(--realce); }
+  .row.sel::before { top:0; bottom:0; }
+  .row .nm { font-weight:600; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .row .meta { grid-column:1; color:var(--faint); font-size:11px; }
+  /* --faint da 4,14 sobre --realce, abaixo do minimo de 4,5. Linha destacada
+     sobe o texto secundario junto -- o que alem de legivel e mais certo: linha
+     selecionada deve ler mais forte, nao igual as outras. */
+  .row:hover .meta, .row.sel .meta { color:var(--dim); }
+  .row .lvl { grid-column:2; grid-row:1/3; color:var(--dim); font-size:11px; }
+  .row .dot { width:6px; height:6px; border-radius:50%; background:var(--faint); display:inline-block; margin-right:5px; vertical-align:1px; }
+  .dot.ready { background:var(--ok); } .dot.needs_auth { background:var(--warn); }
+  .dot.error, .dot.blocked, .dot.suspenso { background:var(--bad); }
+
+  /* ---------- painel de detalhe ---------- */
+  /* Cada filho na sua linha, explicitamente. Sem isto, esconder o banner com
+     display:none tira ele do grid, todo mundo sobe uma linha, o 1fr vai parar no
+     rodape e o palco cai para altura 0 -- o jogo carrega inteiro sem desenhar. */
+  #pane { display:grid; grid-template-rows:auto auto 1fr auto; min-height:0; min-width:0; }
+  #phead { grid-row:1; } .switching { grid-row:2; } #stage { grid-row:3; } #pfoot { grid-row:4; }
+  #phead { display:flex; align-items:center; gap:10px; padding:9px 14px; border-bottom:1px solid var(--etch); background:var(--plate); }
+  #phead .nm { font-weight:600; font-size:14px; }
+  #phead .nm[contenteditable]:focus { outline:1px solid var(--gold); border-radius:3px; }
+
+  /* interruptor de modo: duas posicoes, nao um dropdown */
+  .modesw { display:flex; background:var(--poco); border:1px solid var(--etch); border-radius:999px; overflow:hidden; padding:2px; gap:2px; }
+  .modesw button { border:0; box-shadow:none; border-radius:999px; background:none; color:var(--faint); padding:4px 12px; font-size:11px; font-weight:600; letter-spacing:.04em; cursor:pointer; }
+  .modesw button[aria-pressed="true"] { color:var(--sobre-ouro); }
+  .modesw button[data-mode="ver"][aria-pressed="true"] { background:var(--gold); }
+  .modesw button[data-mode="gerenciar"][aria-pressed="true"] { background:var(--soul); }
+  .modesw button:disabled { opacity:.45; cursor:default; }
+
+  /* ---------- grade de janelas ----------
+     Varias contas na tela ao mesmo tempo. Cada janela nasce UMA vez e nunca muda
+     de pai: reparentar um webview recarrega o jogo do zero. */
+  #pane.grade { grid-template-rows:1fr; }
+  #grade {
+    grid-row:1; display:grid; gap:8px; padding:8px; min-height:0; overflow:auto;
+    grid-template-columns:repeat(var(--cols,3), minmax(0,1fr));
+    grid-auto-rows:minmax(0,1fr);
+  }
+  .cel {
+    display:grid; grid-template-rows:auto 1fr; min-height:220px; min-width:0;
+    background:var(--plate); border:1px solid var(--etch); border-radius:var(--raio); overflow:hidden;
+    box-shadow:var(--brilho), 0 10px 30px rgba(0,0,0,.28);
+    /* Celula nova entra em vez de aparecer. Roda UMA vez, na criacao: a celula
+       nasce uma vez e nunca e recriada (reparentar recarregaria o jogo), entao
+       nao ha risco de a animacao repetir a cada render. */
+    animation:cel-entra .22s cubic-bezier(.32,.72,0,1) both;
+  }
+  @keyframes cel-entra { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+  /* A borda acompanha a faixa; o resto do tamanho vem da grade, que muda sozinha. */
+  .cel { transition:border-color .2s ease; }
+  /* Precisa vir DEPOIS de `.cel`: media query nao soma especificidade, quem
+     decide e a ordem. Declarado la em cima, junto dos outros, nao pegava. */
+  @media (prefers-reduced-motion:reduce) { .cel { animation:none; transition:none; } }
+  .cel.eco { border-color:var(--azul-fio); }
+
+  /* Vaga: conta que existe e nao esta na tela. Mesma casca da celula, para a
+     grade continuar sendo uma grade, mas tracejada -- e um lugar que pode ser
+     ocupado, nao um lugar ocupado. Nao contem <webview>: nao custa memoria. */
+  .cel.vaga { background:var(--poco); border-style:dashed; border-color:var(--etch-forte); }
+  .cel.vaga .top { background:transparent; border-image:none; border-bottom-color:var(--etch); }
+  .cel.vaga .top .nm { color:var(--dim); }
+  .cel.vaga .corpo {
+    display:grid; place-content:center; justify-items:center; gap:7px; padding:18px; text-align:center;
+  }
+  .cel.vaga .rot { font-size:12px; color:var(--txt); font-weight:600; }
+  .cel.vaga .sub { font-size:11px; color:var(--faint); max-width:30ch; line-height:1.5; }
+  .cel.vaga .abrir {
+    margin-top:5px; padding:6px 14px; border-radius:999px; cursor:pointer; font:inherit; font-size:11px;
+    font-weight:700; color:var(--sobre-ouro); border:1px solid var(--gold-fio);
+    background:linear-gradient(180deg, var(--gold-claro), var(--gold));
+    box-shadow:0 4px 14px rgba(244,200,114,.22);
+    transition:filter .15s;
+  }
+  .cel.vaga .abrir:hover:not(:disabled) { filter:brightness(1.12); }
+  .cel.vaga .abrir:disabled { background:none; color:var(--faint); border-color:var(--etch); cursor:default; }
+  .cel > .top {
+    display:flex; align-items:center; gap:6px; padding:5px 7px;
+    background:rgba(255,255,255,.035);
+    /* Fio de joia no topo da janela aberta: ouro (suas maos) indo para o
+       violeta do painel. E o que diz "viva" antes de ler qualquer coisa. */
+    border-bottom:1px solid transparent;
+    border-image:linear-gradient(90deg, rgba(244,200,114,.6), rgba(167,139,250,.45) 55%, rgba(255,255,255,.06)) 1;
+  }
+  .cel > .top .nm { font-size:11px; font-weight:800; letter-spacing:.05em; color:var(--gold); }
+  .cel > .top .lv { font-size:11px; color:var(--dim); }
+  .cel > .top button {
+    background:none; border:0; color:var(--faint); cursor:pointer; padding:2px 5px;
+    border-radius:5px; font:inherit; font-size:12px; line-height:1;
+  }
+  .cel > .top button:hover { background:var(--realce); color:var(--txt); }
+  .cel > .top button.on { color:var(--soul); }
+  .cel .tela { position:relative; min-height:0; background:var(--vault); }
+  .cel .tela webview { position:absolute; inset:0; width:100%; height:100%; border:0; }
+  /* Cartao do Modo Eco: o jogo continua no servidor, o que para e a pintura. */
+  .cel .dorme {
+    position:absolute; inset:0; display:grid; place-content:center; justify-items:center;
+    gap:10px; cursor:pointer; background:radial-gradient(circle at 50% 40%, var(--azul-tinta), var(--vault) 70%);
+  }
+  .cel .dorme .hora { font-family:var(--marca); font-size:32px; font-weight:300; letter-spacing:.04em; font-variant-numeric:tabular-nums; }
+  .cel .dorme .selo {
+    font-size:10px; letter-spacing:.08em; color:var(--soul);
+    border:1px solid var(--azul-fio); border-radius:999px; padding:3px 10px; background:var(--azul-tinta);
+  }
+  .cel .dorme .sub { font-size:11px; color:var(--faint); }
+
+  /* ---------- análise de farm ---------- */
+  #farm[hidden] { display:none; }
+  #farm {
+    position:fixed; inset:var(--bar) 0 0 0; z-index:40; overflow:auto;
+    background:rgba(11,10,26,.8); padding:18px 20px 40px;
+  }
+  #farm .cab { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  #farm h2 { margin:0; font-family:var(--marca); font-size:17px; font-weight:600; letter-spacing:.02em; }
+  #farm .selo {
+    font-size:10px; letter-spacing:.08em; color:var(--gold);
+    border:1px solid var(--ouro-fio); background:var(--ouro-tinta); border-radius:999px; padding:3px 9px;
+  }
+  #farm .linha1 { color:var(--faint); font-size:12px; margin:0 0 14px; }
+  #farm .kpis {
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:16px;
+  }
+  #farm .kpi {
+    background:var(--plate); border:1px solid var(--etch); border-radius:9px; padding:10px 13px;
+  }
+  #farm .kpi span { display:block; font-size:10px; letter-spacing:.09em; color:var(--faint); }
+  #farm .kpi b { display:block; font-size:22px; font-weight:600; margin-top:3px; font-variant-numeric:tabular-nums; }
+  #farm .contas { display:grid; grid-template-columns:repeat(auto-fit,minmax(310px,1fr)); gap:10px; }
+  #farm .cta {
+    background:var(--plate); border:1px solid var(--etch); border-left:3px solid var(--faint);
+    border-radius:9px; padding:11px 13px;
+  }
+  #farm .cta.ver { border-left-color:var(--gold); }
+  #farm .cta.gerenciar { border-left-color:var(--soul); }
+  #farm .cta.suspenso { border-left-color:var(--bad); }
+  #farm .cta .topo { display:flex; align-items:baseline; gap:8px; }
+  #farm .cta .nm { font-weight:600; }
+  #farm .cta .est { margin-left:auto; font-size:10px; letter-spacing:.07em; color:var(--faint); }
+  #farm .cta .nivel { font-size:19px; font-weight:600; font-variant-numeric:tabular-nums; margin:6px 0 8px; }
+  #farm .cta .nivel em { font-style:normal; font-size:11px; color:var(--ok); margin-left:5px; }
+  #farm .cta .grade3 { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+  #farm .cta .cx { background:var(--poco); border:1px solid var(--etch); border-radius:7px; padding:6px 8px; }
+  #farm .cta .cx span { display:block; font-size:9px; letter-spacing:.07em; color:var(--faint); }
+  #farm .cta .cx b { font-size:14px; font-variant-numeric:tabular-nums; }
+  #farm .cta .joias { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+  #farm .cta .joia {
+    font-size:10px; border-radius:999px; padding:2px 8px;
+    border:1px solid var(--etch); background:var(--poco); color:var(--dim);
+  }
+  #farm .cta .quando { font-size:10px; color:var(--faint); margin-top:8px; }
+  .cel .dorme .nota { font-size:10px; color:var(--faint); max-width:32ch; text-align:center; }
+
+  #stage { position:relative; background:var(--vault); min-height:0; }
+  /* Caixa absoluta para o tamanho nao depender da resolucao do grid.
+     O display fica com o flex padrao do Electron -- sobrescrever atrapalha o
+     preenchimento do container. Quem garante o tamanho e o autosize, em app.js. */
+  #stage webview { position:absolute; inset:0; width:100%; height:100%; border:0; }
+  .msg { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; height:100%; color:var(--dim); text-align:center; padding:24px; }
+  .msg .big { color:var(--txt); font-size:14px; font-weight:600; }
+  .msg .sub { max-width:380px; font-size:12px; line-height:1.6; }
+
+  /* barra de progresso da troca: a espera pode levar 2 min, nao pode parecer travada */
+  /* Estado azul mora na tinta azul, nao num realce neutro: alem de coerente com
+     a tese, soul sobre --realce2 dava 4,34 e sobre --azul-tinta da 5,41. */
+  .switching { display:flex; align-items:center; gap:9px; padding:7px 14px; background:var(--azul-tinta); border-bottom:1px solid var(--azul-fio); color:var(--soul); font-size:12px; }
+  /* display:flex na classe vence o [hidden] do navegador: sem isto o banner de
+     troca fica visivel para sempre. */
+  .switching[hidden] { display:none; }
+  .switching .spin { width:11px; height:11px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; animation:spin .7s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @media (prefers-reduced-motion:reduce) { .spin { animation:none; } }
+
+  #pfoot { border-top:1px solid var(--etch); background:var(--plate); }
+  .stats { display:flex; flex-wrap:wrap; gap:3px 20px; padding:8px 14px; color:var(--faint); font-size:11px; }
+  .stats b { color:var(--txt); font-weight:600; font-size:12px; margin-left:5px; }
+  .stats.stale b { color:var(--warn); }
+  .actions { display:flex; flex-wrap:wrap; gap:6px; padding:0 14px 10px; }
+  .rules { display:flex; gap:10px; align-items:center; padding:0 14px 10px; color:var(--faint); font-size:11px; flex-wrap:wrap; border-top:1px solid var(--etch); padding-top:9px; }
+  .rules input[type=number] { width:58px; background:var(--poco); color:var(--txt); border:1px solid var(--etch); border-radius:4px; padding:2px 5px; font-variant-numeric:tabular-nums; }
+  .err { color:var(--bad); font-size:11px; padding:0 14px 9px; word-break:break-word; }
+
+  button { background:var(--realce); color:var(--txt); border:1px solid var(--etch); border-radius:8px; padding:5px 11px; cursor:pointer; font-size:12px; font-family:inherit; font-weight:600; box-shadow:var(--brilho); transition:background .15s, border-color .15s; }
+  button:hover:not(:disabled) { background:var(--realce2); }
+  button:disabled { opacity:.4; cursor:default; }
+  button.gold { background:linear-gradient(180deg, var(--gold-claro), var(--gold)); color:var(--sobre-ouro); border-color:var(--gold-fio); font-weight:700; }
+  button.gold:hover { filter:brightness(1.08); }
+  button.wide { width:100%; }
+  :focus-visible { outline:2px solid var(--caos); outline-offset:2px; }
+  select option { background:#16142C; color:var(--txt); }
+  label.toggle { display:flex; align-items:center; gap:6px; color:var(--dim); font-size:12px; cursor:pointer; }
+  .hint { color:var(--faint); font-size:11px; }
+
+  /* ---------- popup de configuracao ---------- */
+  dialog { border:1px solid var(--etch-forte); border-radius:16px; background:rgba(24,21,50,.78); color:var(--txt);
+    padding:0; width:min(440px,92vw); box-shadow:var(--brilho), 0 24px 70px rgba(0,0,0,.6); }
+  dialog::backdrop { background:rgba(6,5,16,.55); backdrop-filter:blur(3px); }
+  /* Cabecalho com o mesmo traco que a linha de conta usa na coluna: e a
+     assinatura do painel, e e o que faz o dialogo pertencer a este produto e
+     nao a qualquer um. */
+  dialog h2 {
+    margin:0; padding:15px 18px 14px 22px; font-size:13px; font-weight:600;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--txt);
+    border-bottom:1px solid var(--etch); position:relative; background:rgba(255,255,255,.03);
+    font-family:var(--marca); font-weight:600; letter-spacing:.04em;
+  }
+  dialog h2::before {
+    content:""; position:absolute; left:0; top:11px; bottom:11px; width:3px;
+    border-radius:0 2px 2px 0; background:var(--gold);
+  }
+
+  /* Duas cartas, nao um menu suspenso: a escolha decide se a conta vira conta de
+     jogo ou janela comum, e cada uma diz a sua consequencia antes do clique. */
+  .escolha { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .escolha .carta {
+    display:flex; flex-direction:column; gap:5px; text-align:left; cursor:pointer;
+    padding:11px 12px; border-radius:9px; font:inherit;
+    background:var(--poco); border:1px solid var(--etch); color:var(--dim);
+    transition:border-color .16s, background .16s, color .16s;
+  }
+  .escolha .carta .t { font-size:12px; font-weight:600; color:var(--txt); }
+  .escolha .carta .d { font-family:var(--prosa); font-size:11px; line-height:1.45; color:var(--faint); }
+  .escolha .carta:hover { border-color:var(--etch-forte); background:var(--realce); }
+  .escolha .carta[aria-pressed="true"] { background:var(--ouro-tinta); border-color:var(--ouro-fio); }
+  .escolha .carta[aria-pressed="true"] .t { color:var(--gold); }
+  .escolha .carta[data-tipo="comum"][aria-pressed="true"] { background:var(--azul-tinta); border-color:var(--azul-fio); }
+  .escolha .carta[data-tipo="comum"][aria-pressed="true"] .t { color:var(--soul); }
+  .campo[hidden] { display:none; }
+  dialog .corpo { padding:16px 18px; display:flex; flex-direction:column; gap:14px; }
+  dialog .rodape { padding:12px 18px; border-top:1px solid var(--etch); display:flex; gap:8px; justify-content:flex-end; }
+  .campo { display:flex; flex-direction:column; gap:5px; }
+  .campo > span { font-size:11px; color:var(--dim); }
+  .campo input, .campo select { background:var(--poco); color:var(--txt); border:1px solid var(--etch);
+    border-radius:5px; padding:7px 9px; font:inherit; font-size:12px; width:100%; }
+  .provedores { display:flex; gap:6px; }
+  .provedores label { flex:1; text-align:center; padding:8px 4px; border:1px solid var(--etch); border-radius:6px;
+    cursor:pointer; font-size:12px; background:var(--poco); }
+  .provedores input { position:absolute; opacity:0; pointer-events:none; }
+  .provedores label:has(input:checked) { border-color:var(--soul); background:var(--realce2); color:var(--txt); font-weight:600; }
+  .linha { display:flex; gap:8px; align-items:flex-end; }
+  /* min-width:0 e o que deixa o item de flex encolher abaixo do conteudo. Sem
+     ele o input estoura a largura e o popup ganha barra de rolagem horizontal. */
+  .linha .campo { flex:1; min-width:0; }
+  dialog .corpo, dialog .rodape { min-width:0; }
+
+  /* ---------- chat ---------- */
+  #chat { position:fixed; right:16px; bottom:16px; width:min(420px,92vw); max-height:70vh;
+    background:rgba(24,21,50,.82); border:1px solid var(--etch-forte); border-radius:16px; display:none;
+    flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,.55); z-index:40; }
+  #chat[open] { display:flex; }
+  #chat header { display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid var(--etch); font-size:13px; font-weight:600; }
+  #chatlog { flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column; gap:10px; font-size:12px; }
+  .msg-u, .msg-a { padding:8px 11px; border-radius:8px; line-height:1.5; white-space:pre-wrap; word-break:break-word; }
+  .msg-u { background:var(--realce2); align-self:flex-end; max-width:85%; }
+  .msg-a { background:var(--poco); border:1px solid var(--etch); max-width:95%; }
+  .msg-a.erro { border-color:var(--bad); color:var(--bad-claro); }
+  .msg-a .feitos { margin-top:6px; padding-top:6px; border-top:1px solid var(--etch); color:var(--dim); font-size:11px; }
+  #chatform { display:flex; gap:8px; padding:10px 14px; border-top:1px solid var(--etch); }
+  #chatform input { flex:1; background:var(--poco); color:var(--txt); border:1px solid var(--etch);
+    border-radius:6px; padding:8px 10px; font:inherit; font-size:12px; }
+
+  /* Aviso temporario: some sozinho, nao pede acao, nao empurra o layout. */
+  #avisos { position:fixed; right:16px; bottom:16px; display:flex; flex-direction:column; gap:8px; z-index:50; pointer-events:none; }
+  .aviso {
+    background:rgba(24,21,50,.8); border:1px solid var(--etch-forte); border-left:3px solid var(--soul);
+    border-radius:10px; padding:9px 13px; max-width:320px; font-size:12px;
+    box-shadow:0 6px 20px rgba(0,0,0,.45); animation:entra .18s ease-out;
+  }
+  .aviso b { color:var(--txt); font-weight:600; }
+  .aviso .quem { color:var(--dim); display:block; margin-top:2px; font-size:11px; }
+  .aviso.saindo { animation:sai .25s ease-in forwards; }
+  @keyframes entra { from { opacity:0; transform:translateY(6px); } }
+  @keyframes sai { to { opacity:0; transform:translateY(6px); } }
+  @media (prefers-reduced-motion:reduce) { .aviso, .aviso.saindo { animation:none; } }
+</style>
+
+<div id="bar">
+  <span class="brand"><svg class="marca" viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="mOuro" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE7B0"/><stop offset="1" stop-color="#C98E2E"/></linearGradient><linearGradient id="mAlma" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C9D8FF"/><stop offset="1" stop-color="#4A6BD0"/></linearGradient><linearGradient id="mCaos" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#DDD0FF"/><stop offset="1" stop-color="#7650E0"/></linearGradient></defs><path fill="url(#mAlma)" d="M4 26h13l7 8-13 18L-2 34z" transform="translate(3 0)"/><path fill="url(#mCaos)" d="M47 26h13l7 8-13 18-13-18z" transform="translate(-6 0)"/><path fill="url(#mOuro)" d="M22 12h20l10 12-20 30-20-30z"/><path fill="#fff" fill-opacity=".3" d="M22 12l10 12 10-12z"/></svg><span class="nome">MIDLE</span></span>
+  <span class="medidor" id="medidor" title="Consumo do próprio painel, somando todos os processos"><i class="vivo"></i></span>
+  <span class="spacer"></span>
+
+  <!-- Zona: como você olha a frota. -->
+  <div class="zona no-drag">
+    <button id="verGrade" class="zb" title="Ver várias janelas ao mesmo tempo, em grade">Grade</button>
+    <label class="zl" title="Quantas janelas podem ficar abertas ao mesmo tempo. O custo está no rodapé — medido, não estimado.">Telas
+      <select id="maxWindows">
+        <option>1</option><option>2</option><option>4</option><option>6</option><option>9</option><option>12</option>
+      </select>
+    </label>
+    <button id="modoGpu" class="zb" title="Limita quantos quadros por segundo as janelas desenham. O jogo continua visível — diferente do Repouso, que esconde a janela.">Quadros cheios</button>
+    <button id="modoEco" class="zb" title="Esconde o desenho das janelas: o personagem continua farmando. Economiza processador (medido: 89%), não memória.">Repouso</button>
+  </div>
+
+  <!-- Zona: o que você faz com ela. -->
+  <div class="acoes">
+    <button id="abrirFarm" class="bi no-drag" title="Soma o farm de todas as contas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20V13M12 20V6M18 20v-8"/></svg><span>Farm</span></button>
+    <button id="abrirChat" class="bi no-drag" title="Comandar a frota conversando"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.4 8.4 0 0 1-3.8-.9L3 20l1.3-3.9A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></svg><span>Chat IA</span></button>
+    <button id="abrirProxy" class="bi no-drag" title="Um endereço de saída fixo por conta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z"/></svg><span>Proxy</span></button>
+    <button id="recarregarTodas" class="bi no-drag" title="Recarrega todas as janelas abertas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3v6h-6"/><path d="M20.5 13a8.5 8.5 0 1 1-2-6.4L21 9"/></svg><span>Recarregar</span></button>
+    <button id="repetirClique" class="bi no-drag" title="Refaz nas outras janelas o caminho que você acabou de fazer nesta: servidor, personagem, entrar. Grava desde o último Repetir e espera cada tela aparecer."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg><span>Repetir caminho</span></button>
+    <button id="voltarSozinho" class="bi no-drag" title="Sem caminho salvo."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a10 10 0 1 0-9.5-13"/><path d="M2 4v5h5"/><path d="M12 7v5l3 2"/></svg><span>Voltar sozinho</span></button>
+    <button id="mudoTodas" class="bi no-drag" title="Silencia ou devolve o som de todas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M19 5 15 19"/></svg><span>Mudo</span></button>
+    <button id="modoFoco" class="bi no-drag" title="Esconde as barrinhas das células"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg><span>Foco</span></button>
+    <button id="limparCache" class="bi no-drag" title="Limpa o cache das contas; o login continua"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span>Limpar cache</span></button>
+    <button id="closeAll" class="bi no-drag" title="Fecha todas as janelas agora — inclusive as travadas trocando de modo e os popups de login. As contas continuam; viram vaga."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg><span>Fechar tudo</span></button>
+    <button id="abrirCfg" class="bi no-drag" title="Configurar provedor de IA"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15a2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.5-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4.6a2 2 0 1 1 4 0 1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 21 11a2 2 0 1 1 0 4z"/></svg><span>Configurações</span></button>
+  </div>
+  <!-- Zona: parada de emergência. Separada das outras por um vão, porque ela não é
+       uma opção entre as opções -- e é botão, não caixinha: o controle que para a
+       frota inteira não pode ser o mais discreto da barra. -->
+  <button id="killSwitch" class="parada no-drag" aria-pressed="false"
+          title="Para as regras automáticas e o chat. As janelas abertas continuam; o painel é que para de agir sozinho.">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v9"/><path d="M6.6 6.6a9 9 0 1 0 10.8 0"/></svg>
+    <span>Pânico</span>
+  </button>
+</div>
+
+<div id="shell">
+  <nav id="rail" aria-label="Contas">
+    <button id="puxador" type="button" aria-expanded="true" aria-controls="rail" title="Recolher a coluna de contas (Ctrl+B)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+    </button>
+    <!-- A contagem por modo mora aqui, e não no rodapé: ela é sobre estas linhas,
+         e no rodapé estava a dois palmos das contas que descreve. -->
+    <div id="railhead">
+      <span class="par somivel" title="Contas com janela aberta: você joga"><i class="p ver"></i><b id="contaVer">0</b><span id="rotVer">suas</span></span>
+      <span class="par somivel" title="Contas sem janela: o painel é a presença delas"><i class="p ger"></i><b id="contaGer">0</b> <span id="rotGer">fechadas</span></span>
+      <span class="spacer somivel"></span>
+      <span class="par sus somivel" id="parSus" hidden><i class="p sus"></i><b id="contaSus">0</b></span>
+    </div>
+    <div id="list" role="list"></div>
+    <div id="railfoot"><button class="gold wide" id="add">+ Conta</button></div>
+  </nav>
+  <section id="pane"></section>
+</div>
+
+<footer id="rodape">
+  <span class="regras" id="rodapeAlerta">Regras automáticas ativas</span>
+  <span id="rodapeModo"></span>
+  <span class="spacer"></span>
+  <span id="custoJanelas"></span>
+  <span class="contagem" id="rodapeContagem"></span>
+</footer>
+
+<dialog id="nova">
+  <h2>Nova janela</h2>
+  <form method="dialog" class="corpo">
+    <!-- A escolha que define o que a conta VAI SER vem primeiro e ocupa espaco de
+         decisao, nao de campo. Antes era um <select> no meio de outros dois
+         campos iguais, com a consequencia numa frase cinza no rodape. -->
+    <div class="escolha" role="radiogroup" aria-label="O que esta janela vai ser">
+      <button type="button" class="carta" data-tipo="jogo" aria-pressed="true">
+        <span class="t">Conta do Lorvath</span>
+        <span class="d">Sessão isolada e, com o gerenciamento ligado, autorização, telemetria e regra automática.</span>
+      </button>
+      <button type="button" class="carta" data-tipo="comum" aria-pressed="false">
+        <span class="t">Outro endereço</span>
+        <span class="d">Janela de navegador com sessão isolada. Nenhuma automação, nenhuma leitura da página.</span>
+      </button>
+    </div>
+    <div class="campo" id="novoSiteBox" hidden>
+      <span>Para onde</span>
+      <select id="novoSite"></select>
+    </div>
+    <div class="campo" id="novoUrlBox" hidden>
+      <span>Endereço</span>
+      <input id="novoUrl" placeholder="https://exemplo.com" spellcheck="false" autocomplete="off">
+    </div>
+    <div class="campo">
+      <span>Nome</span>
+      <input id="novoNome" placeholder="Conta 2" spellcheck="false" autocomplete="off">
+    </div>
+    <p class="hint" id="novoHint"></p>
+  </form>
+  <div class="rodape">
+    <button id="novoCancelar">Cancelar</button>
+    <button id="novoCriar" class="gold">Criar</button>
+  </div>
+</dialog>
+
+<dialog id="cfg">
+  <h2>Provedor de IA</h2>
+  <form method="dialog" class="corpo">
+    <div class="campo">
+      <span>Provedor — o endereço é preenchido sozinho</span>
+      <div class="provedores" id="provedores"></div>
+    </div>
+    <div class="campo">
+      <span>Chave de API</span>
+      <input type="password" id="cfgKey" placeholder="cole a chave aqui" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="linha">
+      <div class="campo">
+        <span>Modelo</span>
+        <input id="cfgModel" list="modelos" placeholder="modelo" spellcheck="false">
+        <datalist id="modelos"></datalist>
+      </div>
+      <button type="button" id="cfgFetch">Buscar modelos</button>
+    </div>
+    <p class="hint" id="cfgHint"></p>
+  </form>
+  <div class="rodape">
+    <button id="cfgRemover" class="danger">Remover</button>
+    <span class="spacer"></span>
+    <button id="cfgCancelar">Cancelar</button>
+    <button id="cfgSalvar" class="gold">Salvar</button>
+  </div>
+</dialog>
+
+<section id="chat" aria-label="Chat de comando">
+  <header>Chat IA<span class="spacer"></span>
+    <button id="chatLimpar" title="Começar conversa nova">Limpar</button>
+    <button id="chatFechar">Fechar</button>
+  </header>
+  <div id="chatlog"></div>
+  <form id="chatform"><input id="chatin" placeholder="ex: configure o farm de todas as contas" autocomplete="off"><button class="gold">Enviar</button></form>
+</section>
+
+<dialog id="prox">
+  <form method="dialog">
+    <h3>Proxy por conta</h3>
+    <p class="hint">Um endereço de saída fixo para cada conta, para o servidor do jogo não ver a frota
+    inteira vindo do mesmo IP. Cole a lista — uma por linha, em <code>host:porta:usuário:senha</code>
+    ou <code>http://usuário:senha@host:porta</code>.</p>
+    <textarea id="proxLista" class="lista" spellcheck="false" placeholder="1.2.3.4:8080:usuario:senha&#10;5.6.7.8:3128"></textarea>
+    <label class="toggle"><input type="checkbox" id="proxAtivo"> Usar os proxies da lista</label>
+    <p class="hint" id="proxHint"></p>
+    <div class="mapa" id="proxMapa"></div>
+    <menu>
+      <button id="proxRemover" class="danger">Remover</button>
+      <span class="spacer"></span>
+      <button id="proxCancelar">Cancelar</button>
+      <button id="proxSalvar" class="gold">Salvar</button>
+    </menu>
+  </form>
+</dialog>
+
+<section id="farm" hidden aria-label="Análise de farm">
+  <div class="cab">
+    <h2>Análise de Farm</h2>
+    <span class="selo">SOMA DA FROTA</span>
+    <span class="spacer"></span>
+    <button id="farmCopiar">Copiar diagnóstico</button>
+    <button id="farmAtualizar">Atualizar agora</button>
+    <button id="farmFechar">✕</button>
+  </div>
+  <p class="linha1" id="farmLinha1"></p>
+  <div class="kpis" id="farmKpis"></div>
+  <div class="contas" id="farmContas"></div>
+</section>
+
+<div id="avisos" aria-live="polite"></div>
+
+<script src="app.js"></script>

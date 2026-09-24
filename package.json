@@ -1,0 +1,59 @@
+{
+  "name": "midle",
+  "version": "0.2.0",
+  "description": "MIDLE — multi + idle: varias contas de jogo idle, cada uma com sessao de navegador isolada, numa grade so",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node test/selfcheck.js",
+    "start:debug": "electron . --remote-debugging-port=9222",
+    "roteiro": "node test/roteiro.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@fontsource-variable/manrope": "^5.3.0",
+    "@fontsource-variable/unbounded": "^5.3.0",
+    "@modelcontextprotocol/sdk": "^1.30.0"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.andrevinicius.midle",
+    "productName": "MIDLE",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!dist${/*}",
+      "!test${/*}",
+      "!data${/*}",
+      "!*.tar.gz",
+      "!release${/*}",
+      "!graphify-out${/*}",
+      "!specs${/*}",
+      "!docs${/*}",
+      "!design-ref${/*}",
+      "!.specify${/*}",
+      "!.agents${/*}",
+      "!.claude${/*}",
+      "!assets${/*}",
+      "!build${/*}"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "artifactName": "MIDLE-${version}-portable.${ext}",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "MIDLE-${version}-portable.${ext}"
+    },
+    "asarUnpack": [
+      "game-probe.js"
+    ]
+  }
+}

@@ -1,0 +1,40 @@
+node_modules/
+data/*/
+data/accounts.json
+data/actions.log
+data/ws-sample.log
+data/excluidas.json
+# Credenciais: chave do provedor de IA e senhas de proxy. Um `git add -A` publicaria.
+data/ai-key.json
+data/proxies.json
+.env
+.env.*
+dist/
+
+# Artefato compilado: nunca vai para o repositorio (constituicao, Fluxo de Desenvolvimento)
+release/
+
+# Skills de terceiros instaladas pelo `skills add`. O skills-lock.json reproduz.
+.agents/
+.claude/skills/electron-chromium-upgrade/
+.claude/skills/electron-development/
+.claude/skills/chrome-devtools
+
+# Saida do graphify: regeneravel com `graphify update .`
+graphify-out/
+
+# Andaime do Spec Kit e a documentacao gerada por ele. Fica na maquina, nao no
+# repositorio: eram 46 dos 81 arquivos versionados, para 4.797 linhas de codigo,
+# e essa proporcao e que dava ao repositorio a cara de gerado por maquina. O que
+# era conhecimento de verdade -- os limites do servidor, as medicoes de memoria,
+# o mundo isolado do preload -- foi para o README antes de sair daqui.
+specs/
+.specify/
+docs/
+
+# Referencia de design de terceiros (awesome-design-md, MIT). Fica na maquina
+# para consulta; nao e nosso e nao viaja com o repositorio.
+design-ref/
+# Testes: ficam na maquina, como specs e docs. O repositorio leva o app, o
+# README e o andaime do Claude (.claude); o selfcheck e o roteiro rodam daqui.
+test/

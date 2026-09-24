@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- MIDLE: tres joias do MU sobre vidro na cor da noite.
+       Ouro (Bencao) na frente = suas maos no jogo; azul (Alma) e violeta (Caos)
+       atras = a maquina e o painel. As mesmas tres cores da interface. -->
+  <defs>
+    <linearGradient id="noite" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#231E4E"/><stop offset="1" stop-color="#0B0A1A"/>
+    </linearGradient>
+    <radialGradient id="brilhoOuro" cx=".22" cy=".12" r=".6">
+      <stop offset="0" stop-color="#F4C872" stop-opacity=".35"/><stop offset="1" stop-color="#F4C872" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="brilhoCaos" cx=".9" cy=".95" r=".65">
+      <stop offset="0" stop-color="#A78BFA" stop-opacity=".4"/><stop offset="1" stop-color="#A78BFA" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ouro" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFE7B0"/><stop offset=".45" stop-color="#F4C872"/><stop offset="1" stop-color="#A9711F"/>
+    </linearGradient>
+    <linearGradient id="alma" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#D4E1FF"/><stop offset=".45" stop-color="#7FA6FF"/><stop offset="1" stop-color="#2D4BA8"/>
+    </linearGradient>
+    <linearGradient id="caos" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E6DBFF"/><stop offset=".45" stop-color="#A78BFA"/><stop offset="1" stop-color="#5B34C4"/>
+    </linearGradient>
+    <linearGradient id="quina" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity=".04"/>
+    </linearGradient>
+    <!-- Uma joia em 64 unidades: mesa em cima, cintura, ponta embaixo. -->
+    <g id="joia">
+      <path d="M20 4 H44 L60 22 L32 60 L4 22 Z"/>
+      <path d="M20 4 L4 22 H60 L44 4 Z" fill="#fff" fill-opacity=".22"/>
+      <path d="M20 4 L32 22 L44 4 Z" fill="#fff" fill-opacity=".28"/>
+      <path d="M4 22 L32 60 L24 22 Z" fill="#000" fill-opacity=".14"/>
+      <path d="M40 22 L32 60 L60 22 Z" fill="#000" fill-opacity=".26"/>
+      <path d="M20 4 H44 L60 22 L32 60 L4 22 Z" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="1.6" stroke-linejoin="round"/>
+    </g>
+  </defs>
+
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#noite)"/>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#brilhoOuro)"/>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#brilhoCaos)"/>
+  <rect x="9" y="9" width="238" height="238" rx="55" fill="none" stroke="url(#quina)" stroke-width="2"/>
+
+  <use href="#joia" fill="url(#alma)" transform="translate(30 92) scale(1.45)"/>
+  <use href="#joia" fill="url(#caos)" transform="translate(133 92) scale(1.45)"/>
+  <use href="#joia" fill="url(#ouro)" transform="translate(62 52) scale(2.05)"/>
+</svg>

@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "chrome-devtools": {
+      "source": "chromedevtools/chrome-devtools-mcp",
+      "sourceType": "github",
+      "skillPath": "skills/chrome-devtools/SKILL.md",
+      "computedHash": "0cfc9bbc549078e463950f9a661e7904568d45e75b7247187c4ae07559dfe8d8"
+    },
+    "electron-chromium-upgrade": {
+      "source": "electron/electron",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/electron-chromium-upgrade/SKILL.md",
+      "computedHash": "b31cb980ab073f765b3111dc785c31aa050e43c96c32fe359278306dd59e5ba8"
+    },
+    "electron-development": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "skillPath": "electron-development/SKILL.md",
+      "computedHash": "70fd62ad484e35884485ae043d22f3ea7ff3e1365c536569c1994a4c211ba931"
+    }
+  }
+}
